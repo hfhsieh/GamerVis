@@ -8,7 +8,7 @@ def read(fname):
 
 setup(
     name="GamerVis",
-    version="0.1",
+    version="0.0.1",
     author="He-Feng Hsieh",
     author_email="x.geometric@gmail.com",
     description=("Python modules for visualizing GAMER data for CCSN simulations."),
