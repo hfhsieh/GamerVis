@@ -210,14 +210,14 @@ class gamer_hdf5():
         def _pns_sph_radius(field, data):
             x = data["x"] - center[0]
             y = data["y"] - center[1]
-            z = data["y"] - center[2]
+            z = data["z"] - center[2]
 
             return np.sqrt(x * x + y * y + z * z)
 
         def _pns_sph_theta(field, data):
             # polar angle
             r = data["pns_sph_radius"]
-            z = data["y"] - center[2]
+            z = data["z"] - center[2]
 
             return np.arccos(z / r)
 
@@ -231,10 +231,10 @@ class gamer_hdf5():
         def _pns_sph_vradius(field, data):
             x  = data["x"] - center[0]
             y  = data["y"] - center[1]
-            z  = data["y"] - center[2]
+            z  = data["z"] - center[2]
             vx = data["velocity_x"]
             vy = data["velocity_y"]
-            vz = data["velocity_y"]
+            vz = data["velocity_z"]
             r  = np.sqrt(x * x + y * y + z * z)
 
             return (x * vx + y * vy + z * vz) / r
@@ -243,10 +243,10 @@ class gamer_hdf5():
             # polar velocity
             x   = data["x"] - center[0]
             y   = data["y"] - center[1]
-            z   = data["y"] - center[2]
+            z   = data["z"] - center[2]
             vx  = data["velocity_x"]
             vy  = data["velocity_y"]
-            vz  = data["velocity_y"]
+            vz  = data["velocity_z"]
             rho = np.sqrt(x * x + y * y)
             r   = np.sqrt(rho * rho + z * z)
 
