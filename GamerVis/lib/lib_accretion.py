@@ -21,35 +21,28 @@ from scipy.interpolate import interp1d
 from ..io import gamer_io
 
 
-def calc_massenc(fn_list, radius, center):
+def calc_massenc(fn, radius, center):
     """
     Compute the enclosed mass within the specified radius
     for estimating the mass accretion rate via post-processing.
 
     Parameters
     ----------
-    fn_list: array-like of string
-        Filename of HDF5 snapshots to be processed.
+    fn: string
+        Path to the HDF5 snapshot.
     radius: float
         Radius at where the enclosed mass is computed, in cm.
     center: array-like of float
         Coordinate of reference center, in cm.
     """
-    assert len(fn_list) == len(center), "Inconsistent size between fn_list and cneter."
+    ds = yt.load(fn)
+    gamer_io._yt_addfield_sph_pns(None, ds, center = center)
 
-    data = list()
+    ad     = ds.all_data()
+    shpere = ad.include_below(("pns_sph_radius"), radius)
+    mass   = shpere["cell_mass"].sum().in_cgs().to_value()  # in gram
 
-    for fn, c in zip(fn_list, center):
-        ds = yt.load(fn)
-        gamer_io._yt_addfield_sph_pns(None, ds, center = c)
-
-        ad     = ds.all_data()
-        shpere = ad.include_below(("pns_sph_radius"), radius)
-        mass   = shpere["cell_mass"].sum().v  # in gram
-
-        data.append(float(mass))
-
-    return data
+    return mass
 
 
 def calc_accretion_shell(fn, radius, width, center):
@@ -74,11 +67,12 @@ def calc_accretion_shell(fn, radius, width, center):
     shell =    ad.include_above(("pns_sph_radius"), radius - width)
     shell = shell.include_below(("pns_sph_radius"), radius + width)
 
-    mass     = shell["cell_mass"].v
-    vrad     = shell["pns_sph_vradius"].v
-    acc_rate = -sum(mass * vrad) / (2.0 * width)  # arbitrarily normalize by 2.0 * width
+    mass     = shell["cell_mass"]
+    vrad     = shell["pns_sph_vradius"]
+    acc_rate = -(mass * vrad).sum().in_cgs().to_value() \
+             / (2.0 * width)  # arbitrarily normalize by 2.0 * width
 
-    return float(acc_rate)
+    return acc_rate
 
 
 def calc_accretion_profile(fn, radius, center, logscale = False, nbin = 64):

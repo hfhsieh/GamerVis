@@ -834,7 +834,8 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         if source == "hdf5":
             coord = self.yt_get_coord_pns(fn)
         else:
-            coord = [self.interp_centquant("ccsn_{}".format(d), fn)
+            time  = self.get_time(fn)
+            coord = [self.interp_centquant("ccsn_{}".format(d), time = time)
                      for d in "xyz"]
 
         return coord

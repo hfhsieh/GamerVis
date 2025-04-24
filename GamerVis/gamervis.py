@@ -123,61 +123,69 @@ class gamervis(gamer_io):
         fields  = convert_sequence(fields)
 
         # main routine
-        dataset = np.empty(shape = (len(fn_list), 1 + 4 * len(fields)))
+        dataset = dict()
 
-        for idx, fn in enumerate(fn_list):
+        for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
             fn         = self.extend_filename(fn)
             phys_time  = self.get_time(fn, cgs = True)
             center_ref = self.get_center(fn, center)
 
-            dataset[idx, 0] = phys_time
-
-            # obtain and store the maximum value and coordinate for each field
             ds = yt.load(fn)
             ad = ds.all_data()
 
             if selection_cond:
                 region = ad.cut_region(selection_cond)
             else:
-                region = ad
+                region = None
 
+            data = [phys_time]
+
+            # obtain and store the maximum value and coordinate for each field
             for idx_field, field in enumerate(fields):
                 value, coord = ds.find_max(field, source = region)
 
-                pivot = range(4 * idx_field + 1, 4 * idx_field + 4)
-                dataset[idx, pivot      ] = coord.in_cgs() - center_ref
-                dataset[idx, pivot[-1]+1] = value.in_cgs()
+                coord = coord.in_cgs() - center_ref
+                value = value.in_cgs()
 
-        # sort the data according to the physical time
-        dataset = dataset[dataset[:, 0].argsort()]
+                data.extend(coord.tolist())
+                data.append(value.to_value())
 
-        # dump data
-        metadata = ["Bounce Time     [s] : {:.6e}".format(self.tbounce),
-                    "Reference Center    : {}".format(center),
-                    "Selection Condtions : {}".format(selection_cond),
-                    "",
-                    "All quantities are in the CGS unit."]
+            # store the results
+            storage.result_id = fn
+            storage.result    = data
 
-        colname  = ["PhysTime"]
+        if yt.is_root():
+            # sort the data according to the physical time
+            dataset = list(dataset.values())
+            dataset.sort()
 
-        for field in fields:
-            if isinstance(field, str):
-                field_keys = field
-            else:
-                field_keys = field[-1]
+            # dump data
+            metadata = ["Bounce Time     [s] : {:.6e}".format(self.tbounce),
+                        "Reference Center    : {}".format(center),
+                        "Selection Condtions : {}".format(selection_cond),
+                        "",
+                        "All quantities are in the CGS unit."]
 
-            field_keys = self.Field_Name.get(field_keys, field_keys)
+            colname  = ["PhysTime"]
 
-            colname.extend(["{}{}".format(field_keys, suffix)
-                            for suffix in ("_X", "_Y", "_Z", "")])
+            for field in fields:
+                if isinstance(field, str):
+                    field_keys = field
+                else:
+                    field_keys = field[-1]
 
-        header = gene_headers(metadata, colname, fmt = "{:>20s}")
-        fnout = os.path.join(path_fnout, fnout)
+                field_keys = self.Field_Name.get(field_keys, field_keys)
 
-        np.savetxt(fnout, dataset,
-                   delimiter = "", fmt = "%20.7e", header = header, comments = "")
+                colname.extend(["{}{}".format(field_keys, suffix)
+                                for suffix in ("_X", "_Y", "_Z", "")])
 
-        print("Dump data to {}".format(fnout), flush = True)
+            header = gene_headers(metadata, colname, fmt = "{:>20s}")
+            fnout = os.path.join(path_fnout, fnout)
+
+            np.savetxt(fnout, dataset,
+                       delimiter = "", fmt = "%20.7e", header = header, comments = "")
+
+            print("Dump data to {}".format(fnout), flush = True)
 
     def calc_pns(self, fn_list, dens_thresh = 1e11, dens_frac = 0.1,
                  fnout = "PNS.txt", path_fnout = "."):
@@ -203,6 +211,7 @@ class gamervis(gamer_io):
         path_fnout: string, optional
             Path to the output file.
         """
+        # checks
         assert dens_frac < 1.0, "Invalid density fraction: {}".format(dens_frac)
 
         # create the directory for output files
@@ -214,23 +223,23 @@ class gamervis(gamer_io):
             fn_list = self.get_allhdf5files(self.rundir)
 
         fn_list = convert_sequence(fn_list)
-        dataset = np.empty(shape = (len(fn_list), 3))
 
         # main routine
-        for idx, fn in enumerate(fn_list):
-            fn = self.extend_filename(fn)
+        dataset = dict()
+
+        for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
+            fn        = self.extend_filename(fn)
+            phys_time = self.get_time(fn, cgs = True)
+
             ds = yt.load(fn)
             ad = ds.all_data()
 
-            # get the physical time
-            phys_time = self.get_time(fn, cgs = True)
-
             # compute the PNS mass
             region    = ad.cut_region("obj['density'] > {:.6e}".format(dens_thresh))
-            cell_mass = region["cell_mass"].v
+            cell_mass = region["cell_mass"]
 
             if cell_mass.size:
-                mass = np.sum(cell_mass)
+                mass = cell_mass.sum().in_cgs().to_value()
             else:
                 mass = np.nan
 
@@ -240,36 +249,39 @@ class gamervis(gamer_io):
 
             region      =     ad.cut_region("obj['density'] > {:.6e}".format(dens_lo))
             region      = region.cut_region("obj['density'] < {:.6e}".format(dens_hi))
-            cell_radius = region["spherical_radius"].v
+            cell_radius = region["spherical_radius"]
 
             if cell_radius.size:
-                radius = np.mean(cell_radius)
+                radius = cell_radius.mean().in_cgs().to_value()
             else:
                 radius = np.nan
 
             # store the results
-            dataset[idx] = phys_time, mass, radius
+            storage.result_id = fn
+            storage.result    = phys_time, mass, radius
 
-        # sort the data according to the physical time
-        dataset = dataset[dataset[:, 0].argsort()]
+        if yt.is_root():
+            # sort the data according to the physical time
+            dataset = list(dataset.values())
+            dataset.sort()
 
-        # dump data
-        metadata = ["Bounce Time           [s] : {:.6e}".format(self.tbounce),
-                    "Density Threshold [g/cm3] : {:.6e}".format(dens_thresh),
-                    "Density Fraction          : {:.6e}".format(dens_frac),
-                    "",
-                    "All quantities are in the CGS unit.",
-                    "NaN indicates that no cells meet the selection criteria."]
-        colname  = ["PhysTime", "PNS_Mass", "PNS_Radius"]
-        colunit  = ["[s]", "[g]", "[cm]"]
+            # dump data
+            metadata = ["Bounce Time           [s] : {:.6e}".format(self.tbounce),
+                        "Density Threshold [g/cm3] : {:.6e}".format(dens_thresh),
+                        "Density Fraction          : {:.6e}".format(dens_frac),
+                        "",
+                        "All quantities are in the CGS unit.",
+                        "NaN indicates that no cells meet the selection criteria."]
+            colname  = ["PhysTime", "PNS_Mass", "PNS_Radius"]
+            colunit  = ["[s]", "[g]", "[cm]"]
 
-        header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
-        fnout  = os.path.join(path_fnout, fnout)
+            header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
+            fnout  = os.path.join(path_fnout, fnout)
 
-        np.savetxt(fnout, dataset,
-                   delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
+            np.savetxt(fnout, dataset,
+                       delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
 
-        print("Dump data to {}".format(fnout), flush = True)
+            print("Dump data to {}".format(fnout), flush = True)
 
     def calc_profile(self, fn_list, fields = None,
                      rmax = 3.0e8, center = "pns_ascii", logscale = True, nbin = 128,
@@ -339,29 +351,30 @@ class gamervis(gamer_io):
             profile    = self.get_sphave_profile(fn, fields, rmax, center = center_ref,
                                                  field_coord = field_coord, **kwargs_prof)
 
-            # dump data
-            metadata = ["File                : {}".format(fn),
-                        "Physical Time   [s] : {:.6e}".format(phys_time),
-                        "Bounce Time     [s] : {:.6e}".format(self.tbounce),
-                        "Maximum Radius [km] : {:.3f}".format(rmax.in_units("km").v),
-                        "Reference Center    : {}".format(center),
-                        "Number of Bin       : {}".format(nbin),
-                        "Logscale            : {}".format(logscale),
-                        "",
-                        "All quantities are in the CGS unit."]
+            if yt.is_root():
+                # dump data
+                metadata = ["File                : {}".format(fn),
+                            "Physical Time   [s] : {:.6e}".format(phys_time),
+                            "Bounce Time     [s] : {:.6e}".format(self.tbounce),
+                            "Maximum Radius [km] : {:.3f}".format(rmax.in_units("km").v),
+                            "Reference Center    : {}".format(center),
+                            "Number of Bin       : {}".format(nbin),
+                            "Logscale            : {}".format(logscale),
+                            "",
+                            "All quantities are in the CGS unit."]
 
-            header = gene_headers(metadata, colname, fmt = self.fmt_ascii_header)
+                header = gene_headers(metadata, colname, fmt = self.fmt_ascii_header)
 
-            # retrieve the file index and set up the output filename
-            fn_idx = self.get_file_index(fn)
+                # retrieve the file index and set up the output filename
+                fn_idx = self.get_file_index(fn)
 
-            fnout = fnout_prefix + "_{:06d}.txt".format(fn_idx)
-            fnout = os.path.join(path_fnout, fnout)
+                fnout = fnout_prefix + "_{:06d}.txt".format(fn_idx)
+                fnout = os.path.join(path_fnout, fnout)
 
-            np.savetxt(fnout, profile,
-                       delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
+                np.savetxt(fnout, profile,
+                           delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
 
-            print("Dump data to {}".format(fnout), flush = True)
+                print("Dump data to {}".format(fnout), flush = True)
 
     def calc_accretion(self, fn_list, radius, method, center = "pns_ascii",
                        width = 1.0e6, logscale = False, nbin = 64,
@@ -411,66 +424,70 @@ class gamervis(gamer_io):
             fn_list = self.get_allhdf5files(self.rundir)
 
         fn_list = convert_sequence(fn_list)
-        fn_list = [self.extend_filename(fn)  for fn in fn_list]
 
-        phys_time  = [self.get_time(fn, cgs = True)  for fn in  fn_list]
-
-        center_list = [center  for _ in range(len(phys_time))]
-        center_list = [self.get_center(fn, c)
-                       for fn, c in zip(fn_list, center_list)]
-
-        # get the enclosed mass or accretion rate
-        if   method == "postprocess":
+        if method == "postprocess":
             assert len(fn_list) > 1, "Insufficient specified files for the post-process method."
 
-            acc_rate = calc_massenc(fn_list, radius = radius, center = center_list)
+        # main routine
+        dataset = dict()
 
-        elif method == "shell":
-            acc_rate = [calc_accretion_shell(fn, radius = radius, width = width, center = c)
-                        for fn, c in zip(fn_list, center_list)]
+        for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
+            fn         = self.extend_filename(fn)
+            phys_time  = self.get_time(fn)
+            center_ref = self.get_center(fn, center)
 
-        elif method == "profile":
-            acc_rate = [calc_accretion_profile(fn, radius = radius, center = c,
-                                               logscale = logscale, nbin = nbin)
-                        for fn, c in zip(fn_list, center_list)]
+            if   method == "postprocess":
+                acc_rate = calc_massenc(fn, radius = radius, center = center_ref)
 
-        # sort the data according to the physical time
-        dataset = zip(phys_time, acc_rate)
-        dataset = sorted(dataset)
+            elif method == "shell":
+                acc_rate = calc_accretion_shell(fn, radius = radius, width = width,
+                                                center = center_ref)
 
-        # compute the time derivative of the enclosed mass for the post-process method
-        if method == "postprocess":
-            dataset = list(zip(*dataset))
-            dataset = calc_derivative(*dataset)
-            dataset = list(zip(*dataset))
+            elif method == "profile":
+                acc_rate = calc_accretion_profile(fn, radius = radius, center = center_ref,
+                                                  logscale = logscale, nbin = nbin)
 
-        # dump data
-        metadata = ["Method                : {}".format(method),
-                    "Reference Center      : {}".format(center),
-                    "Radius           [cm] : {:.6e}".format(radius)]
+            # store the results
+            storage.result_id = fn
+            storage.result    = phys_time, acc_rate
 
-        if method == "shell":
-            metadata += ["Shell Half-Width [cm] : {:.6e}".format(width)]
+        if yt.is_root():
+            # sort the data according to the physical time
+            dataset = list(dataset.values())
+            dataset.sort()
 
-        if method == "profile":
-            metadata += ["Log Scale             : {}".format(logscale),
-                         "Number of Bin         : {}".format(nbin)]
+            # compute the time derivative of the enclosed mass for the post-process method
+            if method == "postprocess":
+                dataset = list(zip(*dataset))
+                dataset = calc_derivative(*dataset)
+                dataset = list(zip(*dataset))
 
-        metadata += ["",
-                     "All quantities are in the CGS unit."]
-        colname   = ["PhysTime", "AccRate"]
-        colunit   = ["[s]", "[g/s]"]
+            # dump data
+            metadata = ["Method                : {}".format(method),
+                        "Reference Center      : {}".format(center),
+                        "Radius           [cm] : {:.6e}".format(radius)]
 
-        header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
-        fnout  = os.path.join(path_fnout, fnout)
+            if method == "shell":
+                metadata += ["Shell Half-Width [cm] : {:.6e}".format(width)]
 
-        np.savetxt(fnout, np.array(dataset),
-                   delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
+            if method == "profile":
+                metadata += ["Log Scale             : {}".format(logscale),
+                             "Number of Bin         : {}".format(nbin)]
 
-        print("Dump data to {}".format(fnout), flush = True)
+            metadata += ["",
+                         "All quantities are in the CGS unit."]
+            colname   = ["PhysTime", "AccRate"]
+            colunit   = ["[s]", "[g/s]"]
 
-    def calc_timescale_shock(self, fn_list,
-                             center = "pns_ascii", logscale = False, nbin = 128,
+            header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
+            fnout  = os.path.join(path_fnout, fnout)
+
+            np.savetxt(fnout, np.array(dataset),
+                       delimiter = "", fmt = self.fmt_ascii_data, header = header, comments = "")
+
+            print("Dump data to {}".format(fnout), flush = True)
+
+    def calc_timescale_shock(self, fn_list, center = "pns_ascii", logscale = False, nbin = 128,
                              fnout = "Timescale_ShockExp.txt", path_fnout = "."):
         """
         Compute the heating and advection timescale at various radii, along with
@@ -516,16 +533,18 @@ class gamervis(gamer_io):
         rad_size = len(rad_field)
 
         # main routine
-        dataset = list()
-        for fn in fn_list:
+        dataset = dict()
+
+        for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
             fn         = self.extend_filename(fn)
+            phys_time  = self.get_time(fn)
             center_ref = self.get_center(fn, center)
 
             # estimate the advection timescale at various definitions of shock radius
             # and at the radius of neutrino sphere
-            radius_list = [self.interp_centquant(field, fn)  for field in rad_field]
+            radius_list = [self.interp_centquant(field, time = phys_time)
+                           for field in rad_field]
 
-            phys_time    = self.get_time(fn, cgs = True)
             dataset_heat = calc_timescale_heating(fn)  # Eth, dEdt, tau_heat
             dataset_adv  = calc_timescale_advection(fn, radius = radius_list,
                                                     center = center_ref, logscale = logscale,
@@ -533,36 +552,40 @@ class gamervis(gamer_io):
             cond_shkexp  = [tau_adv / dataset_heat[2]
                             for tau_adv in dataset_adv[-rad_size:]]
 
-            dataset.append([phys_time, *dataset_heat, *dataset_adv, *cond_shkexp])
+            # store the results
+            storage.result_id = fn
+            storage.result    = phys_time, *dataset_heat, *dataset_adv, *cond_shkexp
 
-        # sort the data according to the physical time
-        dataset = sorted(dataset)
+        if yt.is_root():
+            # sort the data according to the physical time
+            dataset = list(dataset.values())
+            dataset.sort()
 
-        # dump data
-        metadata = ["Bounce Time  [s] : {:.6e}".format(self.tbounce),
-                    "Reference Center : {}".format(center),
-                    "Log Scale        : {}".format(logscale),
-                    "Number of Bin    : {}".format(nbin),
-                    "",
-                    "All quantities are in the CGS unit."]
-        colname  = ["PhysTime", "Eth", "dEth_dt", "tau_heat"] \
-                 + ["Mass_gain"] \
-                 + ["dM_gain"] * rad_size \
-                 + ["tau_adv"] * rad_size \
-                 + ["tau_adv/tau_heat"] * rad_size
-        colunit  = ["[s]", "[erg]", "[erg/s]","[s]"] \
-                 + ["[g]"] \
-                 + ["{} [g/s]".format(f)  for f in rad_unit] \
-                 + ["{} [s]".format(f)    for f in rad_unit] \
-                 + ["{} [1]".format(f)    for f in rad_unit]
+            # dump data
+            metadata = ["Bounce Time  [s] : {:.6e}".format(self.tbounce),
+                        "Reference Center : {}".format(center),
+                        "Log Scale        : {}".format(logscale),
+                        "Number of Bin    : {}".format(nbin),
+                        "",
+                        "All quantities are in the CGS unit."]
+            colname  = ["PhysTime", "Eth", "dEth_dt", "tau_heat"] \
+                     + ["Mass_gain"] \
+                     + ["dM_gain"] * rad_size \
+                     + ["tau_adv"] * rad_size \
+                     + ["tau_adv/tau_heat"] * rad_size
+            colunit  = ["[s]", "[erg]", "[erg/s]","[s]"] \
+                     + ["[g]"] \
+                     + ["{} [g/s]".format(f)  for f in rad_unit] \
+                     + ["{} [s]".format(f)    for f in rad_unit] \
+                     + ["{} [1]".format(f)    for f in rad_unit]
 
-        header = gene_headers(metadata, colname, colunit, fmt = "{:>20s}")
-        fnout  = os.path.join(path_fnout, fnout)
+            header = gene_headers(metadata, colname, colunit, fmt = "{:>20s}")
+            fnout  = os.path.join(path_fnout, fnout)
 
-        np.savetxt(fnout, np.array(dataset),
-                   delimiter = "", fmt = "%20.7e", header = header, comments = "")
+            np.savetxt(fnout, np.array(dataset),
+                       delimiter = "", fmt = "%20.7e", header = header, comments = "")
 
-        print("Dump data to {}".format(fnout), flush = True)
+            print("Dump data to {}".format(fnout), flush = True)
 
     def plot_centquant(self, field, tbounce = None, weight = "V", axes = None,
                        savefig = False, fnout_prefix = "CCSN", path_fnout = ".", **kwargs_plt):

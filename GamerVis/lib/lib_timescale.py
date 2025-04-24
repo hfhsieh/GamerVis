@@ -67,12 +67,13 @@ def calc_timescale_heating(fn):
 
     # compute the net heating rate in the gain region
     # --> note that we need to convert the unit manually since dEdt_Nu is dimensionless
-    dEdt_CGS = gain_region["dEdt_Nu"] * gain_region["cell_volume"].in_cgs() \
-             * unitsys["V"]**2 * unitsys["D"] / unitsys["T"]
+    unit_dEdt = unitsys["V"]**2 * unitsys["D"] / unitsys["T"]
+    dEdt_CGS  = gain_region["dEdt_Nu"] * unit_dEdt \
+              * gain_region["cell_volume"].in_cgs()
 
     # compute the neutrino heating timescale
-    Eth_total_CGS  = Eth_CGS.sum().v
-    dEdt_total_CGS = dEdt_CGS.sum().v
+    Eth_total_CGS  = Eth_CGS.sum().to_value()
+    dEdt_total_CGS = dEdt_CGS.sum().to_value()
 
     tau_heating = Eth_total_CGS / dEdt_total_CGS
 
@@ -113,8 +114,8 @@ def calc_timescale_advection(fn, radius, center, logscale = False, nbin = 128):
 
     # compute the total mass in the gain region
     gain_region    = gamer_obj.yt_cut_gainregion(fn)
-    mass_CGS       = gain_region["cell_mass"]
-    mass_total_CGS = mass_CGS.sum().v
+    mass_CGS       = gain_region["cell_mass"].in_cgs()
+    mass_total_CGS = mass_CGS.sum().to_value()
 
     # get the spherical averaged profile
     # --> compute the profile over a larger range for interpolation
