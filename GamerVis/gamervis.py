@@ -134,11 +134,15 @@ class gamervis(gamer_io):
             for idx_field, field in enumerate(fields):
                 value, coord = ds.find_max(field, source = region)
 
-                coord = coord.in_cgs() - center_ref
-                value = value.in_cgs()
+                if value.in_cgs() == -1.0e90:
+                    coord = [np.nan] * 3
+                    value = np.nan
+                else:
+                    coord = (coord.in_cgs() - center_ref).tolist()
+                    value = value.in_cgs().to_value()
 
-                data.extend(coord.tolist())
-                data.append(value.to_value())
+                data.extend(coord)
+                data.append(value)
 
             # store the results
             storage.result_id = fn
@@ -154,7 +158,8 @@ class gamervis(gamer_io):
                         "Reference Center     : {}".format(center),
                         "Selection Conditions : {}".format(roi_cond),
                         "",
-                        "All quantities are in the CGS unit."]
+                        "All quantities are in the CGS unit.",
+                        "NaN indicates that no cells meet the selection criteria."]
 
             colname  = ["PhysTime"]
 
