@@ -43,7 +43,7 @@ def calc_densfluct(fn, radius, center, resolution = 1024, nbin = 128):
 
     # compute the 1D averaged density profile
     coord_r  = np.sqrt(coord_x**2 + coord_y**2)
-    bin_edge = np.linspace(0.0, rmax.v, nbin+1)
+    bin_edge = np.linspace(0.0, rmax.in_cgs().to_value(), nbin+1)
 
     bin_cen  = list()
     bin_dens = list()

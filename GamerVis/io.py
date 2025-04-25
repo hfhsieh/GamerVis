@@ -122,14 +122,18 @@ class gamer_hdf5():
         self.rundir = rundir
 
     def _h5py_get_phystime(self, fn):
-        # Retrieve the physical time in the specified HDF5 snapshot, in code unit.
+        """
+        Retrieve the physical time in the specified HDF5 snapshot, in code unit.
+        """
         with h5py.File(fn, "r") as h5obj:
             phys_time = h5obj["Info"]["KeyInfo"]["Time"]
 
-        return float(phys_time[0])
+        return phys_time[0].tolist()
 
     def _h5py_get_unitsystem(self, fn):
-        # Retrieve the unit system in the specified HDF5 snapshot.
+        """
+        Retrieve the unit system in the specified HDF5 snapshot.
+        """
         units = dict()
 
         with h5py.File(fn, "r") as h5obj:
@@ -146,7 +150,7 @@ class gamer_hdf5():
 
         # convert to float
         for key, value in units.items():
-            units[key] = float(value)
+            units[key] = value.tolist()
 
         return units
 
@@ -167,7 +171,9 @@ class gamer_hdf5():
         return convert_datatype_numpy(value)
 
     def _yt_addfield_ye(self, ds):
-        # Add the electron fraction field with name of ("gas", "ye").
+        """
+        Add the electron fraction field with name of ("gas", "ye").
+        """
         def _ye(field, data):
             return yt.YTArray(data["Ye"].v / data["Dens"].v, "dimensionless")
 
@@ -175,8 +181,10 @@ class gamer_hdf5():
                      units = "dimensionless", sampling_type = "cell")
 
     def _yt_addfield_cyl_pns(self, ds, center):
-        # Add cylindrical coordinates and the corresponding angular velocity
-        # relative to the specified reference center.
+        """
+        Add cylindrical coordinates and the corresponding angular velocity
+        relative to the specified reference center.
+        """
         def _pns_cyl_radius(field, data):
             x = data["x"] - center[0]
             y = data["y"] - center[1]
@@ -206,7 +214,9 @@ class gamer_hdf5():
                      display_name = r"$\Omega$", sampling_type = "cell")
 
     def _yt_addfield_sph_pns(self, ds, center):
-        # Add spherical coordinates and velocities relative to the specified reference center.
+        """
+        Add spherical coordinates and velocities relative to the specified reference center.
+        """
         def _pns_sph_radius(field, data):
             x = data["x"] - center[0]
             y = data["y"] - center[1]
@@ -438,7 +448,9 @@ class gamer_hdf5():
                      display_name = r"$\lambda_\mathrm{MRI}$", sampling_type = "cell")
 
     def _yt_get_fieldname(self, string):
-        # Retrieve the field name in the format of "obj[FIELDNAME]"
+        """
+        Retrieve the field name in the format of "obj[FIELDNAME]"
+        """
         matches = re.findall(self.Pattern_YTField, string)
 
         if matches:
@@ -447,8 +459,10 @@ class gamer_hdf5():
             return None
 
     def yt_check_field(self, ds, field, center = None, eos = None):
-        # Checks if the specified field exists in the ds object,
-        # and adds it as a derived field if it is not present.
+        """
+        Checks if the specified field exists in the ds object,
+        and adds it as a derived field if it is not present.
+        """
         if   "ye" in field and ("gas", "ye") not in ds.derived_field_list:
             self._yt_addfield_ye(ds)
 
@@ -470,22 +484,26 @@ class gamer_hdf5():
             pass
 
     def yt_cut_gainregion(self, fn):
-        # Get the gain region.
+        """
+        Get the gain region.
+        """
         ds = yt.load(fn)
         ad = ds.all_data()
 
         return ad.cut_region("obj['dEdt_Nu'] > 0.0")
 
     def yt_get_coord_pns(self, fn):
-        # Get the coordinates of the highest-density cell.
+        """
+        Get the coordinates of the highest-density cell.
+        """
         ds     = yt.load(fn)
         ad     = ds.all_data()
         region = ad.cut_region('obj["gas", "density"] > 1e14')
 
         _, coord = ds.find_max("density", source = region)
-        coord = coord.in_cgs().v
+        coord = coord.in_cgs().tolist()
 
-        return coord.tolist()
+        return coord
 
     def yt_slice(self, fn, field, width, direction, center, resolution = 1024, eos = None):
         """
@@ -630,12 +648,13 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         gamer_ascii.__init__(self, rundir = rundir)
         gamer_hdf5.__init__ (self, rundir = rundir)
 
-        self.rundir     = rundir
-        self.param      = dict()  # dictionary  for storing the runtime parameters
-        self.centquant  = None    # numpy array for storing the data in Record__CentralQuant
-        self.quadmom    = None    # numpy array for storing the data in Record__QuadMom_2nd
-        self.unit       = None    # dictionary  for storing the unit system
-        self.unit_stamp = None    # integer serving as a stamp for the loaded unit system
+        self.rundir          = rundir
+        self.param           = dict()  # dictionary  for storing the runtime parameters
+        self.centquant       = None    # numpy array for storing the data in Record__CentralQuant
+        self.centquant_field = None    # field name in the stored self.centquant
+        self.quadmom         = None    # numpy array for storing the data in Record__QuadMom_2nd
+        self.unit            = None    # dictionary  for storing the unit system
+        self.unit_stamp      = None    # integer serving as a stamp for the loaded unit system
 
     def interp_centquant(self, field, fn = None, time = None):
         """
@@ -651,19 +670,21 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         time: float, optional
             Target physical time, in second.
         """
+        # get the data first
+        self.get_centquant()
+
         # checks
-        assert fn or time, "One of fn or time must be specified."
+        assert fn is not None or time is not None, "One of fn or time must be specified."
+        assert field in self.centquant_field, "Available fields are: {}".format(self.centquant_field)
 
         # get the physical time
         if fn:
-            time_target = self.get_time(fn, cgs = True)
+            time_target = self.get_time(fn)
         else:
             time_target = time
 
         # interpolation
         # --> use boundary values for outliers
-        self.get_centquant()
-
         time = self.centquant["time"]
         data = self.centquant[field]
 
@@ -672,10 +693,12 @@ class gamer_io(gamer_ascii, gamer_hdf5):
                                bounds_error = False)
         value = interp_func(time_target)
 
-        return float(value)
+        return value.tolist()
 
     def extend_filename(self, fn_or_idx):
-        # Extend the filename to Data_{:06d} if a number is specified.
+        """
+        Extend the filename to Data_{:06d} if a number is specified.
+        """
         if   isinstance(fn_or_idx, int):
             # fn_or_idx is an integer
             fn_or_idx = "Data_{:06d}".format(fn_or_idx)
@@ -691,7 +714,9 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         return fn_or_idx
 
     def get_file_index(self, fn):
-        # Retrieve the index from the HDF5 file.
+        """
+        Retrieve the index from the HDF5 file.
+        """
         matches = re.findall(self.Pattern_FileName, fn)
 
         if matches:
@@ -700,7 +725,9 @@ class gamer_io(gamer_ascii, gamer_hdf5):
             return None
 
     def get_allhdf5files(self, path = None):
-        # Get all the HDF5 files, "Data_??????", in the specified directory.
+        """
+        Get all the HDF5 files, "Data_??????", in the specified directory.
+        """
         if path is None:
             path = self.rundir
 
@@ -712,12 +739,18 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         return fn_list
 
     def get_centquant(self):
-        # Get the data in Record__CentralQuant and store in the self.centquant attribute.
+        """
+        Get the data in Record__CentralQuant and store in the self.centquant attribute.
+        """
         if self.centquant is None:
             self.centquant = self._loader_centquant()
 
+        self.centquant_field = self.centquant.dtype.names
+
     def get_quadmom(self):
-        # Get the data in Record__QuadMom_2nd and store in the self.quadmom attribute.
+        """
+        Get the data in Record__QuadMom_2nd and store in the self.quadmom attribute.
+        """
         if self.quadmom is None:
             self.quadmom = self._loader_quadmom()
 
@@ -787,7 +820,9 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         return time
 
     def get_unitsys(self, fn):
-        # Get the unit system recorded in the specified HDF5 snapshot.
+        """
+        Get the unit system recorded in the specified HDF5 snapshot.
+        """
         fnidx = self.get_file_index(fn)
 
         if self.unit_stamp != fnidx:
@@ -841,13 +876,14 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         return coord
 
     def get_center(self, fn, center):
-        # Convert the input center to the box center or the PNS center if specified as a string.
+        """
+        Convert the input center to the box center or the PNS center if specified as a string.
+        """
         if center == "c":
             ds = yt.load(fn)
             ad = ds.all_data()
 
-            center = ad.center.in_cgs()
-            center = center.v.tolist()
+            center = ad.center.in_cgs().tolist()
         elif center == "pns_ascii":
             center = self.get_pns_coord(fn, source = "ascii")
         elif center == "pns_hdf5":

@@ -9,6 +9,7 @@
 __all__ = ("convert_datatype",
            "convert_datatype_numpy",
            "convert_sequence",
+           "gene_mask",
            "gene_headers",
            "calc_derivative"  )
 
@@ -17,7 +18,9 @@ import numpy as np
 
 
 def convert_datatype(value):
-    # Convert the input string to the corresponding datatype.
+    """
+    Convert the input string to the corresponding datatype.
+    """
     if value.isdigit():
         return int(value)
 
@@ -29,7 +32,9 @@ def convert_datatype(value):
 
 
 def convert_datatype_numpy(value):
-    # Convert the numpy datatype of input value to the Python built-in datatype.
+    """
+    Convert the numpy datatype of input value to the Python built-in datatype.
+    """
     if isinstance(value, (np.integer, int)):
         return int(value)
     elif isinstance(value, (np.floating, float)):
@@ -45,13 +50,30 @@ def convert_datatype_numpy(value):
 
 
 def convert_sequence(par):
-    # Check if the input parameter is a sequence, and convert it to a list if it is not.
+    """
+    Check if the input parameter is a sequence, and convert it to a list if it is not.
+    """
     if isinstance(par, (int, float, str)):
         par = [par]
     elif not isinstance(par, (tuple, list, range)):
         raise TypeError("Expected a number/string or a sequence of numbers/strings")
 
     return par
+
+
+def gene_mask(x, x_lower = None, x_upper = None):
+    """
+    Constructs a boolean mask based on the specified selection criteria.
+    """
+    mask = np.full(len(x), True, dtype = bool)
+
+    if x_lower is not None:
+        mask &= (x >= x_lower)
+
+    if x_upper is not None:
+        mask &= (x <= x_upper)
+
+    return mask
 
 
 def gene_headers(metadata, colname, colunit = None, fmt = "{:>14s}"):

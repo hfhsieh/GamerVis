@@ -68,20 +68,8 @@ class gamervis(gamer_io):
             from .nueos import nueos
             self.eos = nueos(nuctable)
 
-    def generate_mask(self, x, x_lower = None, x_upper = None):
-        # Constructs a boolean mask based on the specified selection criteria.
-        mask = np.full(len(x), True, dtype = bool)
-
-        if x_lower is not None:
-            mask &= (x >= x_lower)
-
-        if x_upper is not None:
-            mask &= (x <= x_upper)
-
-        return mask
-
     def calc_fieldmax(self, fn_list, fields,
-                      center = "pns_ascii", selection_cond = None,
+                      center = "pns_ascii", roi_cond = None,
                       fnout = "FieldMax.txt", path_fnout = "."):
         """
         Find the maximum value of the specified fields within the domain,
@@ -100,8 +88,8 @@ class gamervis(gamer_io):
             --> "c"        : center of the simulation domain.
                 "pns_ascii": PNS center recorded in Record__CentralQuant
                 "pns_hdf5" : coordinate of highest-density cell in the HDF5 snapshot.
-        selection_cond: string or array-like of string, optional
-            A condition of list of conditions that define the region
+        roi_cond: string or array-like of string, optional
+            A list of conditions used to define the region of interest
             over which the maximum values are computed.
         fnout: string, optional
             Name the output ASCII file.
@@ -116,8 +104,8 @@ class gamervis(gamer_io):
         if fn_list == "all":
             fn_list = self.get_allhdf5files(self.rundir)
 
-        if selection_cond is not None:
-            selection_cond = convert_sequence(selection_cond)
+        if roi_cond is not None:
+            roi_cond = convert_sequence(roi_cond)
 
         fn_list = convert_sequence(fn_list)
         fields  = convert_sequence(fields)
@@ -127,14 +115,16 @@ class gamervis(gamer_io):
 
         for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
             fn         = self.extend_filename(fn)
-            phys_time  = self.get_time(fn, cgs = True)
+            phys_time  = self.get_time(fn)
             center_ref = self.get_center(fn, center)
 
             ds = yt.load(fn)
             ad = ds.all_data()
 
-            if selection_cond:
-                region = ad.cut_region(selection_cond)
+            # process the roi_cond
+
+            if roi_cond:
+                region = ad.cut_region(roi_cond)
             else:
                 region = None
 
@@ -160,9 +150,9 @@ class gamervis(gamer_io):
             dataset.sort()
 
             # dump data
-            metadata = ["Bounce Time     [s] : {:.6e}".format(self.tbounce),
-                        "Reference Center    : {}".format(center),
-                        "Selection Condtions : {}".format(selection_cond),
+            metadata = ["Bounce Time      [s] : {:.6e}".format(self.tbounce),
+                        "Reference Center     : {}".format(center),
+                        "Selection Conditions : {}".format(roi_cond),
                         "",
                         "All quantities are in the CGS unit."]
 
@@ -229,7 +219,7 @@ class gamervis(gamer_io):
 
         for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
             fn        = self.extend_filename(fn)
-            phys_time = self.get_time(fn, cgs = True)
+            phys_time = self.get_time(fn)
 
             ds = yt.load(fn)
             ad = ds.all_data()
@@ -356,7 +346,7 @@ class gamervis(gamer_io):
                 metadata = ["File                : {}".format(fn),
                             "Physical Time   [s] : {:.6e}".format(phys_time),
                             "Bounce Time     [s] : {:.6e}".format(self.tbounce),
-                            "Maximum Radius [km] : {:.3f}".format(rmax.in_units("km").v),
+                            "Maximum Radius [km] : {:.3f}".format(rmax.in_units("km").to_value()),
                             "Reference Center    : {}".format(center),
                             "Number of Bin       : {}".format(nbin),
                             "Logscale            : {}".format(logscale),
@@ -678,7 +668,7 @@ class gamervis(gamer_io):
             xlim = kwargs_plt.pop("xlim")
 
             # construct the mask
-            mask = self.generate_mask(time, *xlim)
+            mask = gene_mask(time, *xlim)
 
             # apply the mask
             time = time[mask]
@@ -921,7 +911,7 @@ class gamervis(gamer_io):
                                                 method = method, **kwargs_spect)
 
             # customize the output for display
-            mask = self.generate_mask(freq, fmin, fmax)
+            mask = gene_mask(freq, fmin, fmax)
             freq = freq[mask]
             spec = spec[mask, :]
 
@@ -967,7 +957,7 @@ class gamervis(gamer_io):
             if num_ave > 1:
                 asd = medfilt(asd, num_ave)
 
-            mask = self.generate_mask(freq, fmin, fmax)
+            mask = gene_mask(freq, fmin, fmax)
             freq = freq[mask]
             asd  = asd [mask]
 
@@ -1081,7 +1071,7 @@ class gamervis(gamer_io):
             # preparation
             fn         = self.extend_filename(fn)
             fn_idx     = self.get_file_index(fn)
-            phys_time  = self.get_time(fn, cgs = True)
+            phys_time  = self.get_time(fn)
             center_ref = self.get_center(fn, center)
 
             if tstart and phys_time < tstart:
@@ -1139,18 +1129,17 @@ class gamervis(gamer_io):
                     data_disp  = slc.frb.data[field_disp].v
 
                     if cb_lim is None:
-                        data_min = np.nanmin(data_disp)
-                        data_max = np.nanmax(data_disp)
-                        cb_lim   = float(data_min), float(data_max)
+                        data_min = np.nanmin(data_disp).tolist()
+                        data_max = np.nanmax(data_disp).tolist()
+                        cb_lim   = data_min, data_max
                     else:
                         # non-decreasing range
-                        data_max = np.nanmax(data_disp)
-                        print(data_max)
+                        data_max = np.nanmax(data_disp).tolist()
 
                         if cb_lim[1] is None:
                             cb_lim = cb_lim[0], data_max
                         else:
-                            cb_lim = cb_lim[0], max( float(data_max), cb_lim[1] )
+                            cb_lim = cb_lim[0], max( data_max, cb_lim[1] )
 
                     # update the displayed color bar again
                     slc.set_zlim(f, *cb_lim)
@@ -1223,7 +1212,7 @@ class gamervis(gamer_io):
             # preparation
             fn         = self.extend_filename(fn)
             fn_idx     = self.get_file_index(fn)
-            phys_time  = self.get_time(fn, cgs = True)
+            phys_time  = self.get_time(fn)
             center_ref = self.get_center(fn, center)
 
             xylim = -radius / km2cm, radius / km2cm  # in km
