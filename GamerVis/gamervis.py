@@ -128,7 +128,7 @@ class gamervis(gamer_io):
             else:
                 region = None
 
-            data = [phys_time]
+            data = [phys_time, phys_time - self.tbounce]
 
             # obtain and store the maximum value and coordinate for each field
             for idx_field, field in enumerate(fields):
@@ -161,7 +161,7 @@ class gamervis(gamer_io):
                         "All quantities are in the CGS unit.",
                         "NaN indicates that no cells meet the selection criteria."]
 
-            colname  = ["PhysTime"]
+            colname  = ["PhysTime", "PhysTime_PB"]
 
             for field in fields:
                 if isinstance(field, str):
@@ -253,7 +253,7 @@ class gamervis(gamer_io):
 
             # store the results
             storage.result_id = fn
-            storage.result    = phys_time, mass, radius
+            storage.result    = phys_time, phys_time - self.tbounce, mass, radius
 
         if yt.is_root():
             # sort the data according to the physical time
@@ -267,8 +267,8 @@ class gamervis(gamer_io):
                         "",
                         "All quantities are in the CGS unit.",
                         "NaN indicates that no cells meet the selection criteria."]
-            colname  = ["PhysTime", "PNS_Mass", "PNS_Radius"]
-            colunit  = ["[s]", "[g]", "[cm]"]
+            colname  = ["PhysTime", "PhysTime_PB", "PNS_Mass", "PNS_Radius"]
+            colunit  = ["[s]", "[s]", "[g]", "[cm]"]
 
             header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
             fnout  = os.path.join(path_fnout, fnout)
@@ -444,7 +444,7 @@ class gamervis(gamer_io):
 
             # store the results
             storage.result_id = fn
-            storage.result    = phys_time, acc_rate
+            storage.result    = phys_time, phys_time - self.tbounce, acc_rate
 
         if yt.is_root():
             # sort the data according to the physical time
@@ -471,8 +471,8 @@ class gamervis(gamer_io):
 
             metadata += ["",
                          "All quantities are in the CGS unit."]
-            colname   = ["PhysTime", "AccRate"]
-            colunit   = ["[s]", "[g/s]"]
+            colname   = ["PhysTime", "PhysTime_PB", "AccRate"]
+            colunit   = ["[s]", "[s]", "[g/s]"]
 
             header = gene_headers(metadata, colname, colunit = colunit, fmt = self.fmt_ascii_header)
             fnout  = os.path.join(path_fnout, fnout)
@@ -549,7 +549,8 @@ class gamervis(gamer_io):
 
             # store the results
             storage.result_id = fn
-            storage.result    = phys_time, *dataset_heat, *dataset_adv, *cond_shkexp
+            storage.result    = (phys_time, phys_time - self.tbounce
+                                 *dataset_heat, *dataset_adv, *cond_shkexp)
 
         if yt.is_root():
             # sort the data according to the physical time
@@ -563,12 +564,12 @@ class gamervis(gamer_io):
                         "Number of Bin    : {}".format(nbin),
                         "",
                         "All quantities are in the CGS unit."]
-            colname  = ["PhysTime", "Eth", "dEth_dt", "tau_heat"] \
+            colname  = ["PhysTime", "PhysTime_PB", "Eth", "dEth_dt", "tau_heat"] \
                      + ["Mass_gain"] \
                      + ["dM_gain"] * rad_size \
                      + ["tau_adv"] * rad_size \
                      + ["tau_adv/tau_heat"] * rad_size
-            colunit  = ["[s]", "[erg]", "[erg/s]","[s]"] \
+            colunit  = ["[s]", "[s]", "[erg]", "[erg/s]","[s]"] \
                      + ["[g]"] \
                      + ["{} [g/s]".format(f)  for f in rad_unit] \
                      + ["{} [s]".format(f)    for f in rad_unit] \
