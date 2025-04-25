@@ -33,15 +33,15 @@ class gamervis(gamer_io):
     Class for analyzing and visualizing GAMER data for CCSN simulations.
     """
     FieldName_CentQuant = set(fmt_centquant_lightbulb.names) \
-                        | set(fmt_centquant_leakage.names)
-    Field_Name = {"density"                        : "Dens",
-                  "radial_velocity"                : "Vrad",
-                  "pns_sph_vradius"                : "Vrad",
-                  "ye"                             : "Ye",
-                  "Ye"                             : "YeDens",
-                  "magnetic_field_spherical_radius": "Brad",
-                  "magnetic_field_spherical_theta" : "Btht",
-                  "magnetic_field_spherical_phi"   : "Bphi" }  # alias of field name for output ASCII files
+                        | set(fmt_centquant_leakage.names)       # available field names in Record__CentralQuant
+    FieldName_yt = {"density"                        : "Dens",
+                    "radial_velocity"                : "Vrad",
+                    "pns_sph_vradius"                : "Vrad",
+                    "ye"                             : "Ye",
+                    "Ye"                             : "YeDens",
+                    "magnetic_field_spherical_radius": "Brad",
+                    "magnetic_field_spherical_theta" : "Btht",
+                    "magnetic_field_spherical_phi"   : "Bphi" }  # alias of field name for output ASCII files
     fmt_ascii_header = "{:>14s}"
     fmt_ascii_data   = "%14.6e"
 
@@ -201,7 +201,7 @@ class gamervis(gamer_io):
                 else:
                     field_keys = field[-1]
 
-                field_keys = self.Field_Name.get(field_keys, field_keys)
+                field_keys = self.FieldName_yt.get(field_keys, field_keys)
 
                 colname.extend(["{}{}".format(field_keys, suffix)
                                 for suffix in ("_X", "_Y", "_Z", "")])
@@ -274,8 +274,8 @@ class gamervis(gamer_io):
             dens_lo = dens_thresh * (1.0 - dens_frac)
             dens_hi = dens_thresh * (1.0 + dens_frac)
 
-            region      =     ad.cut_region("obj['density'] > {:.6e}".format(dens_lo))
-            region      = region.cut_region("obj['density'] < {:.6e}".format(dens_hi))
+            region      = ad.cut_region(["obj['density'] > {:.6e}".format(dens_lo),
+                                         "obj['density'] < {:.6e}".format(dens_hi) ])
             cell_radius = region["spherical_radius"]
 
             if cell_radius.size:
@@ -360,7 +360,7 @@ class gamervis(gamer_io):
         else:
             fields = convert_sequence(fields)
 
-        colname = ["Radius"] + [self.Field_Name.get(f, f)  for f in fields]
+        colname = ["Radius"] + [self.FieldName_yt.get(f, f)  for f in fields]
 
         field_coord = "pns_sph_radius"
         rmax        = yt.YTArray(rmax, "cm")
