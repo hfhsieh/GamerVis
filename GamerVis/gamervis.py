@@ -19,6 +19,7 @@ from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 
 from .io import gamer_io
+from .fmt import *
 from .helper import *
 from .constant import *
 from .lib.lib_accretion import *
@@ -31,6 +32,8 @@ class gamervis(gamer_io):
     """
     Class for analyzing and visualizing GAMER data for CCSN simulations.
     """
+    FieldName_CentQuant = set(fmt_centquant_lightbulb.names) \
+                        | set(fmt_centquant_leakage.names)
     Field_Name = {"density"                        : "Dens",
                   "radial_velocity"                : "Vrad",
                   "pns_sph_vradius"                : "Vrad",
@@ -67,6 +70,34 @@ class gamervis(gamer_io):
         if nuctable:
             from .nueos import nueos
             self.eos = nueos(nuctable)
+
+    def _replace_key_roicond(self, roi_cond, fn = None, time = None):
+        """
+        Replace the field name in the selection condition with
+        its corresponding value at the specified physical time.
+
+        Note the field name must be enclosed in dollar sign,
+        such as "obj[('gas', 'radius')] > $rsh_max$".
+
+        Currently supports field name available in Record__CentralQuant.
+
+        Parameters
+        ----------
+        roi_cond: string
+            Selection condition passed to yt.
+        fn: string, optional
+            Path to the HDF5 snapshot.
+        time: float, optional
+            Target physical time, in second.
+        """
+        for key in self.FieldName_CentQuant:
+            if key in roi_cond:
+                value     = self.interp_centquant(key, fn = fn, time = time)
+                value_str = "{:.7e}".format(value)
+
+                roi_cond = roi_cond.replace("${}$".format(key), value_str)
+
+        return roi_cond
 
     def calc_fieldmax(self, fn_list, fields,
                       center = "pns_ascii", roi_cond = None,
@@ -122,9 +153,10 @@ class gamervis(gamer_io):
             ad = ds.all_data()
 
             # process the roi_cond
-
             if roi_cond:
-                region = ad.cut_region(roi_cond)
+                roi_cond_ref = [self._replace_key_roicond(cond, time = phys_time)
+                                for cond in roi_cond]
+                region = ad.cut_region(roi_cond_ref)
             else:
                 region = None
 
