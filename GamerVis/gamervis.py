@@ -628,7 +628,8 @@ class gamervis(gamer_io):
             --> "dens"  : peak density.
                 "ye"    : electron fraction associated with the highest-density cell.
                 "rsh"   : minimum, average, and maximum shock radius.
-                "lum_nu": neutrino luminosity
+                "lum_nu": luminosity of the three neutrino species.
+                Print self.FieldName_CentQuant for other supported fields.
         tbounce: float, optional
             Physical time of core bounce, in second.
         weight: string, optional
@@ -648,16 +649,13 @@ class gamervis(gamer_io):
             --> "xlim": range for the x coordinate, in second.
         """
         # checks
-        assert field in ["dens", "ye", "rsh", "lum_nu"], "Unsupported field: {}".format(field)
+        assert field in self.FieldName_CentQuant | set(["rsh", "lum_nu"]), "Unsupported field: {}".format(field)
 
         if field == "rsh":
             assert weight in ["V", "Vinv"], "Weigth {} is not supported for the mean shock radius!".format(weight)
 
         if field == "lum_nu":
             assert self.get_param("NEUTRINO_SCHEME") == "LEAKAGE", "No data for Neutrino luminosity."
-
-        if tbounce == "auto":
-            tbounce = self.tbounce
 
         # create the directory for output files
         if path_fnout != ".":
@@ -668,6 +666,9 @@ class gamervis(gamer_io):
 
         # get the data and set the label
         if tbounce:
+            if tbounce == "auto":
+                tbounce = self.tbounce
+
             time   = self.centquant["time"] - tbounce  # in second
             xlabel = "Time after Bounce [ms]"
 
@@ -676,7 +677,7 @@ class gamervis(gamer_io):
             xlabel = "Time [ms]"
 
 
-        if   field == "dens":
+        if field == "dens":
             # peak density
             data   = self.centquant["dens"] / 1.0e14  # in 10^14 g/cm3
             ylabel = r"Central Density [$10^{14}$ g cm$^{-3}$]"
@@ -700,6 +701,9 @@ class gamervis(gamer_io):
                       self.centquant["leak_lum_nua"],
                       self.centquant["leak_lum_nux"] / 4.0]
             ylabel = r"Neutrino Luminosity [erg/s]"
+        else:
+            data   = self.centquant[field]
+            ylabel = field
 
         # trim the data if xlim presents in the kwargs_plt
         if "xlim" in kwargs_plt:
