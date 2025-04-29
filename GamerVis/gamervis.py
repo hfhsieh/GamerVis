@@ -149,20 +149,32 @@ class gamervis(gamer_io):
             phys_time  = self.get_time(fn)
             center_ref = self.get_center(fn, center)
 
-            ds = yt.load(fn)
-            ad = ds.all_data()
-
             # process the roi_cond
             if roi_cond:
                 roi_cond_ref = [self._replace_key_roicond(cond, time = phys_time)
                                 for cond in roi_cond]
+
+            ds = yt.load(fn)
+
+            # add the required fields
+            if roi_cond:
+                for cond in roi_cond:
+                    field_cond = self._yt_get_fieldname(cond)
+                    self.yt_check_field(ds, field_cond, center = center_ref, eos = self.eos)
+
+            for field in fields:
+                self.yt_check_field(ds, field_cond, center = center_ref, eos = self.eos)
+
+            # set up the region for finding the extreme
+            if roi_cond:
+                ad     = ds.all_data()
                 region = ad.cut_region(roi_cond_ref)
             else:
                 region = None
 
+            # obtain and store the maximum value and coordinate for each field
             data = [phys_time, phys_time - self.tbounce]
 
-            # obtain and store the maximum value and coordinate for each field
             for idx_field, field in enumerate(fields):
                 value, coord = ds.find_max(field, source = region)
 
