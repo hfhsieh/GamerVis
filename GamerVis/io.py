@@ -197,19 +197,41 @@ class gamer_hdf5():
 
             return np.arctan2(y, x)
 
-        def _pns_cyl_omega(field, data):
-            rad    = data[("gas", "pns_cyl_radius")]
-            theta  = data[("gas", "pns_cyl_theta")]
-            vx     = data["velocity_x"]
-            vy     = data["velocity_y"]
-            vtheta = -np.sin(theta) * vx + np.cos(theta) * vy
+        def _pns_cyl_z(field, data):
+            return data["z"] - center[2]
 
-            return vtheta / rad
+        def _pns_cyl_vradius(field, data):
+            theta = data[("gas", "pns_cyl_theta")]
+            vx    = data["velocity_x"]
+            vy    = data["velocity_y"]
+
+            return np.cos(theta) * vx + np.sin(theta) * vy
+
+        def _pns_cyl_vtheta(field, data):
+            theta = data[("gas", "pns_cyl_theta")]
+            vx    = data["velocity_x"]
+            vy    = data["velocity_y"]
+
+            return -np.sin(theta) * vx + np.cos(theta) * vy
+
+        def _pns_cyl_vz(field, data):
+            return data[("gas", "velocity_cylindrical_z")]
+
+        def _pns_cyl_omega(field, data):
+            return data[("gas", "pns_cyl_vtheta")] / data[("gas", "pns_cyl_radius")]
 
         ds.add_field(("gas", "pns_cyl_radius"), function = _pns_cyl_radius, units = "cm",
                      display_name = r"Cylindrical Radius", sampling_type = "cell")
         ds.add_field(("gas", "pns_cyl_theta"), function = _pns_cyl_theta, units = "dimensionless",
                      display_name = r"Cylindrical Theta", sampling_type = "cell")
+        ds.add_field(("gas", "pns_cyl_z"), function = _pns_cyl_z, units = "cm",
+                     display_name = r"Cylindrical Z", sampling_type = "cell")
+        ds.add_field(("gas", "pns_cyl_vradius"), function = _pns_cyl_vradius, units = "cm/s",
+                     display_name = r"Cylindrical Radial Velocity$", sampling_type = "cell")
+        ds.add_field(("gas", "pns_cyl_vtheta"), function = _pns_cyl_vtheta, units = "cm/s",
+                     display_name = r"Cylindrical Azimuthal Velocity$", sampling_type = "cell")
+        ds.add_field(("gas", "pns_cyl_vz"), function = _pns_cyl_vz, units = "cm/s",
+                     display_name = r"Cylindrical Vertical Velocity$", sampling_type = "cell")
         ds.add_field(("gas", "pns_cyl_omega"), function = _pns_cyl_omega, units = "1/s",
                      display_name = r"$\Omega$", sampling_type = "cell")
 
