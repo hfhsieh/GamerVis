@@ -54,15 +54,23 @@ def calc_accretion_shell(fn, radius, width, center):
     center: array-like of float
         Coordinate of reference center, in cm.
     """
-    ds = yt.load(fn)
-    gamer_io._yt_addfield_sph_pns(None, ds, center = center)
+    ds  = yt.load(fn)
+    obj = gamer_io()
 
-    ad    =    ds.all_data()
-    shell =    ad.include_above(("pns_spherical_radius"), radius - width)
-    shell = shell.include_below(("pns_spherical_radius"), radius + width)
+    if obj._yt_is_boxcenter(ds, center):
+        field_rad  = "radius"
+        field_vrad = "radial_velocity"
+    else:
+        obj._yt_addfield_sph_pns(ds, center = center)
 
-    mass     = shell["cell_mass"]
-    vrad     = shell["pns_velocity_spherical_radius"]
+        field_rad  = "pns_spherical_radius"
+        field_vrad = "pns_velocity_spherical_radius"
+
+    sphere = ds.sphere(center = center, radius = yt.YTArray(radius + width, "cm"))
+    mask = sphere[field_rad] > radius - width
+
+    mass     = sphere["cell_mass"][mask]
+    vrad     = sphere[field_vrad][mask]
     acc_rate = -(mass * vrad).sum().in_cgs().to_value() \
              / (2.0 * width)  # arbitrarily normalize by 2.0 * width
 
@@ -97,7 +105,6 @@ def calc_accretion_profile(fn, radius, center, logscale = False, nbin = 64):
     fields      = [("gas", "density"), ("gas", "pns_velocity_spherical_radius")]
     kwargs_prof = {"units"       : {field_coord: "km"},
                    "logs"        : {field_coord: logscale},
-                   "extrema"     : {field_coord: (None, rmax)},
                    "weight_field": ("gas", "cell_mass"),
                    "n_bins"      : nbin }
 

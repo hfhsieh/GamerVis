@@ -987,7 +987,11 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         self.yt_check_field(ds, field_coord, center = center)
 
         # get the profile
-        rmax    = yt.YTArray(rmax, "cm")
+        rmax = yt.YTArray(rmax, "cm")
+
+        if "extrema" not in kwargs_prof:
+            kwargs_prof["extrema"] = {field_coord: (None, rmax)}
+
         sphere  = ds.sphere(center, rmax)
         profile = yt.create_profile(sphere, field_coord, fields, **kwargs_prof)
 

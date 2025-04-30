@@ -400,7 +400,6 @@ class gamervis(gamer_io):
 
         kwargs_prof = {"units"       : {field_coord: "km"},
                        "logs"        : {field_coord: logscale},
-                       "extrema"     : {field_coord: (None, rmax)},
                        "weight_field": ("gas", "cell_mass"),
                        "n_bins"      : nbin                 }
 
@@ -417,7 +416,7 @@ class gamervis(gamer_io):
                 metadata = ["File                : {}".format(fn),
                             "Physical Time   [s] : {:.6e}".format(phys_time),
                             "Bounce Time     [s] : {:.6e}".format(self.tbounce),
-                            "Maximum Radius [km] : {:.3f}".format(rmax.in_units("km").to_value()),
+                            "Maximum Radius [km] : {:.3f}".format(rmax / km2cm),
                             "Reference Center    : {}".format(center),
                             "Number of Bin       : {}".format(nbin),
                             "Logscale            : {}".format(logscale),

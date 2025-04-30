@@ -126,7 +126,6 @@ def calc_timescale_advection(fn, radius, center, logscale = False, nbin = 128):
     fields      = [("gas", "density"), ("gas", "pns_velocity_spherical_radius")]
     kwargs_prof = {"units"       : {field_coord: "km"},
                    "logs"        : {field_coord: logscale},
-                   "extrema"     : {field_coord: (None, rmax)},
                    "weight_field": ("gas", "cell_mass"),
                    "n_bins"      : nbin }
 
