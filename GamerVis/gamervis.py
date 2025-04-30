@@ -36,7 +36,8 @@ class gamervis(gamer_io):
                         | set(fmt_centquant_leakage.names)       # available field names in Record__CentralQuant
     FieldName_yt = {"density"                        : "Dens",
                     "radial_velocity"                : "Vrad",
-                    "pns_sph_vradius"                : "Vrad",
+                    "velocity_spherical_radius"      : "Vrad",
+                    "pns_velocity_spherical_radius"  : "Vrad",
                     "ye"                             : "Ye",
                     "Ye"                             : "YeDens",
                     "magnetic_field_spherical_radius": "Brad",
@@ -367,14 +368,22 @@ class gamervis(gamer_io):
         fn_list = convert_sequence(fn_list)
 
         if fields is None:
-            fields = ["density", "pns_sph_vradius", "ye", "Ye", "Temp",
-                      "Pres", "Entr", "Pote"]
+            if center == "c":
+                fields = ["density", "radial_velocity", "ye",
+                          "Ye", "Temp", "Pres", "Entr", "Pote"]
+            else:
+                fields = ["density", "pns_velocity_spherical_radius", "ye",
+                          "Ye", "Temp", "Pres", "Entr", "Pote"]
         else:
             fields = convert_sequence(fields)
 
         colname = ["Radius"] + [self.FieldName_yt.get(f, f)  for f in fields]
 
-        field_coord = "pns_sph_radius"
+        if center == "c":
+            field_coord = "radius"
+        else:
+            field_coord = "pns_spherical_radius"
+
         rmax        = yt.YTArray(rmax, "cm")
         kwargs_prof = {"units"       : {field_coord: "km"},
                        "logs"        : {field_coord: logscale},

@@ -185,126 +185,162 @@ class gamer_hdf5():
         Add cylindrical coordinates and the corresponding angular velocity
         relative to the specified reference center.
         """
-        def _pns_cyl_radius(field, data):
-            x = data["x"] - center[0]
-            y = data["y"] - center[1]
+        Is_BoxCenter = np.all(ds.domain_center.in_cgs() == center)
 
-            return np.sqrt(x * x + y * y)
+        def _pns_cyl_radius(field, data):
+            if Is_BoxCenter:
+                return data["cylindrical_radius"]
+            else:
+                x = data["x"] - center[0]
+                y = data["y"] - center[1]
+
+                return np.sqrt(x * x + y * y)
 
         def _pns_cyl_theta(field, data):
-            x = data["x"] - center[0]
-            y = data["y"] - center[1]
+            if Is_BoxCenter:
+                return data["cylindrical_theta"]
+            else:
+                x = data["x"] - center[0]
+                y = data["y"] - center[1]
 
-            return np.arctan2(y, x)
+                return np.arctan2(y, x)
 
         def _pns_cyl_z(field, data):
-            return data["z"] - center[2]
+            if Is_BoxCenter:
+                return data["cylindrical_z"]
+            else:
+                return data["z"] - center[2]
 
         def _pns_cyl_vradius(field, data):
-            theta = data[("gas", "pns_cyl_theta")]
-            vx    = data["velocity_x"]
-            vy    = data["velocity_y"]
+            if Is_BoxCenter:
+                return data["velocity_cylindrical_radius"]
+            else:
+                theta = data["pns_cylindrical_theta"]
+                vx    = data["velocity_x"]
+                vy    = data["velocity_y"]
 
-            return np.cos(theta) * vx + np.sin(theta) * vy
+                return np.cos(theta) * vx + np.sin(theta) * vy
 
         def _pns_cyl_vtheta(field, data):
-            theta = data[("gas", "pns_cyl_theta")]
-            vx    = data["velocity_x"]
-            vy    = data["velocity_y"]
+            if Is_BoxCenter:
+                return data["velocity_cylindrical_theta"]
+            else:
+                theta = data["pns_cylindrical_theta"]
+                vx    = data["velocity_x"]
+                vy    = data["velocity_y"]
 
-            return -np.sin(theta) * vx + np.cos(theta) * vy
+                return -np.sin(theta) * vx + np.cos(theta) * vy
 
         def _pns_cyl_vz(field, data):
             return data[("gas", "velocity_cylindrical_z")]
 
         def _pns_cyl_omega(field, data):
-            return data[("gas", "pns_cyl_vtheta")] / data[("gas", "pns_cyl_radius")]
+            if Is_BoxCenter:
+                return data["velocity_cylindrical_theta"]     / data["cylindrical_radius"]
+            else:
+                return data["pns_velocity_cylindrical_theta"] / data["pns_cylindrical_radius"]
 
-        ds.add_field(("gas", "pns_cyl_radius"), function = _pns_cyl_radius, units = "cm",
-                     display_name = r"Cylindrical Radius", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_theta"), function = _pns_cyl_theta, units = "dimensionless",
-                     display_name = r"Cylindrical Theta", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_z"), function = _pns_cyl_z, units = "cm",
-                     display_name = r"Cylindrical Z", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_vradius"), function = _pns_cyl_vradius, units = "cm/s",
-                     display_name = r"Cylindrical Radial Velocity$", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_vtheta"), function = _pns_cyl_vtheta, units = "cm/s",
-                     display_name = r"Cylindrical Azimuthal Velocity$", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_vz"), function = _pns_cyl_vz, units = "cm/s",
-                     display_name = r"Cylindrical Vertical Velocity$", sampling_type = "cell")
-        ds.add_field(("gas", "pns_cyl_omega"), function = _pns_cyl_omega, units = "1/s",
-                     display_name = r"$\Omega$", sampling_type = "cell")
+        ds.add_field(("gas", "pns_cylindrical_radius"),          function = _pns_cyl_radius,
+                     units = "cm",            display_name = r"Cylindrical Radius",              sampling_type = "cell")
+        ds.add_field(("gas", "pns_cylindrical_theta"),           function = _pns_cyl_theta,
+                     units = "dimensionless", display_name = r"Cylindrical Theta",               sampling_type = "cell")
+        ds.add_field(("gas", "pns_cylindrical_z"),               function = _pns_cyl_z,
+                     units = "cm",            display_name = r"Cylindrical Z",                   sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_cylindrical_radius"), function = _pns_cyl_vradius,
+                     units = "cm/s",          display_name = r"Cylindrical Radial Velocity$",    sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_cylindrical_theta"),  function = _pns_cyl_vtheta,
+                     units = "cm/s",          display_name = r"Cylindrical Azimuthal Velocity$", sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_cylindrical_z"),      function = _pns_cyl_vz,
+                     units = "cm/s",          display_name = r"Cylindrical Vertical Velocity$",  sampling_type = "cell")
+        ds.add_field(("gas", "pns_oemga_cylindrical"),           function = _pns_cyl_omega,
+                     units = "1/s",           display_name = r"$\Omega$",                        sampling_type = "cell")
 
     def _yt_addfield_sph_pns(self, ds, center):
         """
         Add spherical coordinates and velocities relative to the specified reference center.
         """
-        def _pns_sph_radius(field, data):
-            x = data["x"] - center[0]
-            y = data["y"] - center[1]
-            z = data["z"] - center[2]
+        Is_BoxCenter = np.all(ds.domain_center.in_cgs() == center)
 
-            return np.sqrt(x * x + y * y + z * z)
+        def _pns_sph_radius(field, data):
+            if Is_BoxCenter:
+                return data["spherical_radius"]
+            else:
+                x = data["x"] - center[0]
+                y = data["y"] - center[1]
+                z = data["z"] - center[2]
+
+                return np.sqrt(x * x + y * y + z * z)
 
         def _pns_sph_theta(field, data):
-            # polar angle
-            r = data["pns_sph_radius"]
-            z = data["z"] - center[2]
+            if Is_BoxCenter:
+                return data["spherical_theta"]
+            else:
+                r = data["pns_spherical_radius"]
+                z = data["z"] - center[2]
 
-            return np.arccos(z / r)
+                return np.arccos(z / r)
 
         def _pns_sph_phi(field, data):
-            # azimuthal angle
-            x = data["x"] - center[0]
-            y = data["y"] - center[1]
+            if Is_BoxCenter:
+                return data["spherical_phi"]
+            else:
+                x = data["x"] - center[0]
+                y = data["y"] - center[1]
 
-            return np.arctan2(y, x)
+                return np.arctan2(y, x)
 
         def _pns_sph_vradius(field, data):
-            x  = data["x"] - center[0]
-            y  = data["y"] - center[1]
-            z  = data["z"] - center[2]
-            vx = data["velocity_x"]
-            vy = data["velocity_y"]
-            vz = data["velocity_z"]
-            r  = np.sqrt(x * x + y * y + z * z)
+            if Is_BoxCenter:
+                return data["velocity_spherical_radius"]
+            else:
+                x  = data["x"] - center[0]
+                y  = data["y"] - center[1]
+                z  = data["z"] - center[2]
+                vx = data["velocity_x"]
+                vy = data["velocity_y"]
+                vz = data["velocity_z"]
+                r  = np.sqrt(x * x + y * y + z * z)
 
-            return (x * vx + y * vy + z * vz) / r
+                return (x * vx + y * vy + z * vz) / r
 
         def _pns_sph_vtheta(field, data):
-            # polar velocity
-            x   = data["x"] - center[0]
-            y   = data["y"] - center[1]
-            z   = data["z"] - center[2]
-            vx  = data["velocity_x"]
-            vy  = data["velocity_y"]
-            vz  = data["velocity_z"]
-            rho = np.sqrt(x * x + y * y)
-            r   = np.sqrt(rho * rho + z * z)
+            if Is_BoxCenter:
+                return data["velocity_spherical_theta"]
+            else:
+                x   = data["x"] - center[0]
+                y   = data["y"] - center[1]
+                z   = data["z"] - center[2]
+                vx  = data["velocity_x"]
+                vy  = data["velocity_y"]
+                vz  = data["velocity_z"]
+                rho = np.sqrt(x * x + y * y)
+                r   = np.sqrt(rho * rho + z * z)
 
-            return (z * (x * vx + y * vy) - (x * x + y * y) * vz) / (r * rho)
+                return (z * (x * vx + y * vy) - (x * x + y * y) * vz) / (r * rho)
 
         def _pns_sph_vphi(field, data):
-            # azimuthal velocity
-            x  = data["x"] - center[0]
-            y  = data["y"] - center[1]
-            vx = data["velocity_x"]
-            vy = data["velocity_y"]
+            if Is_BoxCenter:
+                return data["velocity_spherical_phi"]
+            else:
+                x  = data["x"] - center[0]
+                y  = data["y"] - center[1]
+                vx = data["velocity_x"]
+                vy = data["velocity_y"]
 
-            return (-y * vx + x * vy) / np.sqrt(x * x + y * y)
+                return (-y * vx + x * vy) / np.sqrt(x * x + y * y)
 
-        ds.add_field(("gas", "pns_sph_radius"), function = _pns_sph_radius, units = "cm",
-                     display_name = r"Spherical Radius", sampling_type = "cell")
-        ds.add_field(("gas", "pns_sph_theta"), function = _pns_sph_theta, units = "dimensionless",
-                     display_name = r"Spherical Theta", sampling_type = "cell")
-        ds.add_field(("gas", "pns_sph_phi"), function = _pns_sph_phi, units = "dimensionless",
-                     display_name = r"Spherical Phi", sampling_type = "cell")
-        ds.add_field(("gas", "pns_sph_vradius"), function = _pns_sph_vradius, units = "cm/s",
-                     display_name = r"Spherical Radial Velocity", sampling_type = "cell")
-        ds.add_field(("gas", "pns_sph_vtheta"), function = _pns_sph_vtheta, units = "1/s",
-                     display_name = r"Spherical Polar Velocity", sampling_type = "cell")
-        ds.add_field(("gas", "pns_sph_vphi"), function = _pns_sph_vphi, units = "1/s",
-                     display_name = r"Spherical Azimuthal Velocity", sampling_type = "cell")
+        ds.add_field(("gas", "pns_spherical_radius"),          function = _pns_sph_radius,
+                     units = "cm",            display_name = r"Spherical Radius",             sampling_type = "cell")
+        ds.add_field(("gas", "pns_spherical_theta"),           function = _pns_sph_theta,
+                     units = "dimensionless", display_name = r"Spherical Theta",              sampling_type = "cell")
+        ds.add_field(("gas", "pns_spherical_phi"),             function = _pns_sph_phi,
+                     units = "dimensionless", display_name = r"Spherical Phi",                sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_spherical_radius"), function = _pns_sph_vradius,
+                     units = "cm/s",          display_name = r"Spherical Radial Velocity",    sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_spherical_theta"),  function = _pns_sph_vtheta,
+                     units = "1/s",           display_name = r"Spherical Polar Velocity",     sampling_type = "cell")
+        ds.add_field(("gas", "pns_velocity_spherical_phi"),    function = _pns_sph_vphi,
+                     units = "1/s",           display_name = r"Spherical Azimuthal Velocity", sampling_type = "cell")
 
     def _yt_addfield_mri_N2(self, ds, eos):
         """
@@ -395,10 +431,10 @@ class gamer_hdf5():
         center: array-like of float
             Coordinate of reference center, in cm.
         """
-        self.yt_check_field(ds, "pns_cyl_radius", center = center)
+        self.yt_check_field(ds, "pns_cylindrical_radius", center = center)
 
         def _pns_cyl_omega2(field, data):
-            return data["pns_cyl_omega"]**2
+            return data["pns_oemga_cylindrical"]**2
 
         ds.add_field(("gas", "mri_O2"), function = _pns_cyl_omega2, units = "1/s**2",
                      display_name = r"$\Omega^2$", sampling_type = "cell")
@@ -414,8 +450,8 @@ class gamer_hdf5():
         ds.add_gradient_fields(("gas", "mri_O2"))
 
         def _mri_Rvarpi(field, data):
-            rad           = data[("gas", "pns_cyl_radius")]
-            theta         = data[("gas", "pns_cyl_theta")]
+            rad           = data[("gas", "pns_cylindrical_radius")]
+            theta         = data[("gas", "pns_cylindrical_theta")]
             omega2_grad_x = data[("gas", "mri_O2_gradient_x")]
             omega2_grad_y = data[("gas", "mri_O2_gradient_y")]
 
@@ -488,11 +524,11 @@ class gamer_hdf5():
         if   "ye" in field and ("gas", "ye") not in ds.derived_field_list:
             self._yt_addfield_ye(ds)
 
-        elif "pns_cyl" in field and ("gas", "pns_cyl_radius") not in ds.derived_field_list:
+        elif "pns_cylindrical_radius" in field and ("gas", "pns_cylindrical_radius") not in ds.derived_field_list:
             assert center is not None, "Center is not provided."
             self._yt_addfield_cyl_pns(ds, center)
 
-        elif "pns_sph" in field and ("gas", "pns_sph_radius") not in ds.derived_field_list:
+        elif "pns_spherical_radius" in field and ("gas", "pns_spherical_radius") not in ds.derived_field_list:
             assert center is not None, "Center is not provided."
             self._yt_addfield_sph_pns(ds, center)
 
@@ -902,10 +938,8 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         Convert the input center to the box center or the PNS center if specified as a string.
         """
         if center == "c":
-            ds = yt.load(fn)
-            ad = ds.all_data()
-
-            center = ad.center.in_cgs().tolist()
+            ds     = yt.load(fn)
+            center = ds.domain_center.in_cgs().tolist()
         elif center == "pns_ascii":
             center = self.get_pns_coord(fn, source = "ascii")
         elif center == "pns_hdf5":
