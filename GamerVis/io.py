@@ -170,6 +170,12 @@ class gamer_hdf5():
 
         return convert_datatype_numpy(value)
 
+    def _yt_is_boxcenter(self, ds, center):
+        """
+        Check whether the reference center is same as the box center.
+        """
+        return np.all(ds.domain_center.in_cgs() == center)
+
     def _yt_addfield_ye(self, ds):
         """
         Add the electron fraction field with name of ("gas", "ye").
@@ -185,7 +191,7 @@ class gamer_hdf5():
         Add cylindrical coordinates and the corresponding angular velocity
         relative to the specified reference center.
         """
-        Is_BoxCenter = np.all(ds.domain_center.in_cgs() == center)
+        Is_BoxCenter = self._yt_is_boxcenter(ds, center)
 
         def _pns_cyl_radius(field, data):
             if Is_BoxCenter:
@@ -259,7 +265,7 @@ class gamer_hdf5():
         """
         Add spherical coordinates and velocities relative to the specified reference center.
         """
-        Is_BoxCenter = np.all(ds.domain_center.in_cgs() == center)
+        Is_BoxCenter = self._yt_is_boxcenter(ds, center)
 
         def _pns_sph_radius(field, data):
             if Is_BoxCenter:

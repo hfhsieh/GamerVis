@@ -227,7 +227,7 @@ class gamervis(gamer_io):
 
             print("Dump data to {}".format(fnout), flush = True)
 
-    def calc_pns(self, fn_list, dens_thresh = 1e11, dens_frac = 0.1,
+    def calc_pns(self, fn_list, dens_thresh = 1e11, dens_frac = 0.1, center = "pns_ascii",
                  fnout = "PNS.txt", path_fnout = "."):
         """
         Compute the enclosed mass and radius of the proto-neutron star (PNS), where
@@ -246,6 +246,11 @@ class gamervis(gamer_io):
             Density threshold for computing the PNS mass and radius.
         dens_frac: float, optional
             Fractional tolerance around the threshold density for computing the PNS radius.
+        center: string or array-like of float, optional
+            Coordinate of reference center, in cm.
+            --> "c"        : center of the simulation domain.
+                "pns_ascii": PNS center recorded in Record__CentralQuant
+                "pns_hdf5" : coordinate of highest-density cell in the HDF5 snapshot.
         fnout: string, optional
             Name the output ASCII file.
         path_fnout: string, optional
@@ -268,13 +273,20 @@ class gamervis(gamer_io):
         dataset = dict()
 
         for storage, fn in yt.parallel_objects(fn_list, storage = dataset):
-            fn        = self.extend_filename(fn)
-            phys_time = self.get_time(fn)
+            fn         = self.extend_filename(fn)
+            phys_time  = self.get_time(fn)
+            center_ref = self.get_center(fn, center)
 
             ds = yt.load(fn)
-            ad = ds.all_data()
+
+            if self._yt_is_boxcenter(ds, center_ref):
+                field_radius = "radius"
+            else:
+                field_radius = "pns_spherical_radius"
+                self.yt_check_field(self, ds, field_radius, center = center_ref)
 
             # compute the PNS mass
+            ad        = ds.all_data()
             region    = ad.cut_region("obj['density'] > {:.6e}".format(dens_thresh))
             cell_mass = region["cell_mass"]
 
@@ -289,7 +301,8 @@ class gamervis(gamer_io):
 
             region      = ad.cut_region(["obj['density'] > {:.6e}".format(dens_lo),
                                          "obj['density'] < {:.6e}".format(dens_hi) ])
-            cell_radius = region["spherical_radius"]
+
+            cell_radius = region[field_radius]
 
             if cell_radius.size:
                 radius = cell_radius.mean().in_cgs().to_value()
@@ -309,6 +322,7 @@ class gamervis(gamer_io):
             metadata = ["Bounce Time           [s] : {:.6e}".format(self.tbounce),
                         "Density Threshold [g/cm3] : {:.6e}".format(dens_thresh),
                         "Density Fraction          : {:.6e}".format(dens_frac),
+                        "Reference Center          : {}".format(center),
                         "",
                         "All quantities are in the CGS unit.",
                         "NaN indicates that no cells meet the selection criteria."]
