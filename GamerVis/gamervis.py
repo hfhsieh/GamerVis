@@ -384,7 +384,6 @@ class gamervis(gamer_io):
         else:
             field_coord = "pns_spherical_radius"
 
-        rmax        = yt.YTArray(rmax, "cm")
         kwargs_prof = {"units"       : {field_coord: "km"},
                        "logs"        : {field_coord: logscale},
                        "extrema"     : {field_coord: (None, rmax)},

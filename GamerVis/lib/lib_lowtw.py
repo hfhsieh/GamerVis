@@ -34,7 +34,7 @@ def calc_densfluct(fn, radius, center, resolution = 1024, nbin = 128):
         Number of bins for constructing the azimuthally averaged density.
     """
     # use a larger range than the specified one for the averaged density profile
-    rmax = yt.YTArray(np.sqrt(2) * radius, "cm")
+    rmax = np.sqrt(2) * radius
 
     # obtain the density distribution on the XY-plane via the fixed-resolution buffer in yt
     gamer_obj = gamer_io()

@@ -121,7 +121,7 @@ def calc_timescale_advection(fn, radius, center, logscale = False, nbin = 128):
     # --> compute the profile over a larger range for interpolation
     field_coord  = "pns_spherical_radius"
     rmax_scaling = 1.5
-    rmax         = yt.YTArray(rmax_scaling * max(radius), "cm")
+    rmax         = rmax_scaling * max(radius)
 
     fields      = [("gas", "density"), ("gas", "pns_velocity_spherical_radius")]
     kwargs_prof = {"units"       : {field_coord: "km"},

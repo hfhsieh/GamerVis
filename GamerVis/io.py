@@ -597,6 +597,8 @@ class gamer_hdf5():
             label_y = "y"
             center_axis = center[2]
 
+        width = yt.YTArray(width, "cm")
+
         ds = yt.load(fn)
         self.yt_check_field(ds, field, center = center, eos = eos)
 
@@ -962,7 +964,7 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         fields: string or array-like of string
             Name of target fields.
         rmax: float
-            Maximum radius of the profile.
+            Maximum radius of the profile, in cm.
         center: string or array-like of float, optional
             Coordinate of reference center, in cm.
         field_coord: string, optional
@@ -979,6 +981,7 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         self.yt_check_field(ds, field_coord, center = center)
 
         # get the profile
+        rmax    = yt.YTArray(rmax, "cm")
         sphere  = ds.sphere(center, rmax)
         profile = yt.create_profile(sphere, field_coord, fields, **kwargs_prof)
 

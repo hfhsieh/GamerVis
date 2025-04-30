@@ -5,8 +5,6 @@
 #  Purpose:
 #    Library for estimating the accretion rate at the speicified radius using yt.
 #
-#    We currently assumes the PNS center locates at the box center.
-#
 
 __all__ = ("calc_massenc",
            "calc_accretion_shell",
@@ -92,7 +90,7 @@ def calc_accretion_profile(fn, radius, center, logscale = False, nbin = 64):
     """
     # compute the profile over a larger range for interpolation
     rmax_scaling = 1.5
-    rmax         = yt.YTArray(rmax_scaling * radius, "cm")
+    rmax         = rmax_scaling * radius
 
     # profile setting
     field_coord = "pns_spherical_radius"
