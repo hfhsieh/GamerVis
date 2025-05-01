@@ -18,6 +18,7 @@ from glob import glob
 import yt
 import h5py
 import numpy as np
+from unyt import unyt_array
 from scipy.interpolate import interp1d
 
 from .fmt import *
@@ -945,16 +946,18 @@ class gamer_io(gamer_ascii, gamer_hdf5):
         """
         Convert the input center to the box center or the PNS center if specified as a string.
         """
-        if center == "c":
-            ds     = yt.load(fn)
-            center = ds.domain_center.in_cgs().tolist()
-        elif center == "pns_ascii":
-            center = self.get_pns_coord(fn, source = "ascii")
-        elif center == "pns_hdf5":
-            center = self.get_pns_coord(fn, source = "hdf5")
+        if isinstance(center, str):
+            if center == "c":
+                ds     = yt.load(fn)
+                center = ds.domain_center.in_cgs().tolist()
+            elif center == "pns_ascii":
+                center = self.get_pns_coord(fn, source = "ascii")
+            elif center == "pns_hdf5":
+                center = self.get_pns_coord(fn, source = "hdf5")
 
         # convert to yt.YTArray
-        center = yt.YTArray(center, "cm")
+        if not isinstance(center, unyt_array):
+            center = yt.YTArray(center, "cm")
 
         return center
 
