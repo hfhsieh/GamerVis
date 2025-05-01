@@ -528,16 +528,20 @@ class gamer_hdf5():
         Checks if the specified field exists in the ds object,
         and adds it as a derived field if it is not present.
         """
-        if   "ye" in field and ("gas", "ye") not in ds.derived_field_list:
+        if isinstance(field, (list, tuple)):
+            field = field[-1]
+
+        if   "ye" == field and ("gas", "ye") not in ds.derived_field_list:
             self._yt_addfield_ye(ds)
 
-        elif "pns_cylindrical_radius" in field and ("gas", "pns_cylindrical_radius") not in ds.derived_field_list:
-            assert center is not None, "Center is not provided."
-            self._yt_addfield_cyl_pns(ds, center)
+        elif "pns" in field:
+            if "cylindrical" in field and ("gas", "pns_cylindrical_radius") not in ds.derived_field_list:
+                assert center is not None, "Center is not provided."
+                self._yt_addfield_cyl_pns(ds, center)
 
-        elif "pns_spherical_radius" in field and ("gas", "pns_spherical_radius") not in ds.derived_field_list:
-            assert center is not None, "Center is not provided."
-            self._yt_addfield_sph_pns(ds, center)
+            if "spherical" in field and ("gas", "pns_spherical_radius") not in ds.derived_field_list:
+                assert center is not None, "Center is not provided."
+                self._yt_addfield_sph_pns(ds, center)
 
         elif "mri" in field and ("gas", field) not in ds.derived_field_list:
             assert eos    is not None, "EoS solver provided."
