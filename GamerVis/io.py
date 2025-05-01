@@ -267,6 +267,7 @@ class gamer_hdf5():
         Add spherical coordinates and velocities relative to the specified reference center.
         """
         Is_BoxCenter = self._yt_is_boxcenter(ds, center)
+        Is_MHD       = ds.parameters["Magnetohydrodynamics"]
 
         def _pns_sph_radius(field, data):
             if Is_BoxCenter:
@@ -296,58 +297,83 @@ class gamer_hdf5():
 
                 return np.arctan2(y, x)
 
-        def _pns_sph_vradius(field, data):
-            if Is_BoxCenter:
-                return data["velocity_spherical_radius"]
-            else:
-                x  = data["x"] - center[0]
-                y  = data["y"] - center[1]
-                z  = data["z"] - center[2]
-                vx = data["velocity_x"]
-                vy = data["velocity_y"]
-                vz = data["velocity_z"]
-                r  = np.sqrt(x * x + y * y + z * z)
+        def _pns_sph_vec_generator(field_target, direction):
+            fieldname_default = "{}_spherical_{}".format(field_target, direction)
+            fieldname_x       = "{}_x".format(field_target)
+            fieldname_y       = "{}_y".format(field_target)
+            fieldname_z       = "{}_z".format(field_target)
 
-                return (x * vx + y * vy + z * vz) / r
+            if direction == "radius":
+                def _pns_sph_vec_radius(field, data):
+                    if Is_BoxCenter:
+                        return data[fieldname_default]
+                    else:
+                        x     = data["x"] - center[0]
+                        y     = data["y"] - center[1]
+                        z     = data["z"] - center[2]
+                        vec_x = data[fieldname_x]
+                        vec_y = data[fieldname_y]
+                        vec_z = data[fieldname_z]
+                        r  = np.sqrt(x * x + y * y + z * z)
 
-        def _pns_sph_vtheta(field, data):
-            if Is_BoxCenter:
-                return data["velocity_spherical_theta"]
-            else:
-                x   = data["x"] - center[0]
-                y   = data["y"] - center[1]
-                z   = data["z"] - center[2]
-                vx  = data["velocity_x"]
-                vy  = data["velocity_y"]
-                vz  = data["velocity_z"]
-                rho = np.sqrt(x * x + y * y)
-                r   = np.sqrt(rho * rho + z * z)
+                        return (x * vec_x + y * vec_y + z * vec_z) / r
 
-                return (z * (x * vx + y * vy) - (x * x + y * y) * vz) / (r * rho)
+                return _pns_sph_vec_radius
 
-        def _pns_sph_vphi(field, data):
-            if Is_BoxCenter:
-                return data["velocity_spherical_phi"]
-            else:
-                x  = data["x"] - center[0]
-                y  = data["y"] - center[1]
-                vx = data["velocity_x"]
-                vy = data["velocity_y"]
+            elif direction == "theta":
+                def _pns_sph_vec_theta(field, data):
+                    if Is_BoxCenter:
+                        return data[fieldname_default]
+                    else:
+                        x     = data["x"] - center[0]
+                        y     = data["y"] - center[1]
+                        z     = data["z"] - center[2]
+                        vec_x = data[fieldname_x]
+                        vec_y = data[fieldname_y]
+                        vec_z = data[fieldname_z]
+                        rho   = np.sqrt(x * x + y * y)
+                        r     = np.sqrt(rho * rho + z * z)
 
-                return (-y * vx + x * vy) / np.sqrt(x * x + y * y)
+                        return (z * (x * vec_x + y * vec_y) - (x * x + y * y) * vec_z) \
+                             / (r * rho)
 
+                return _pns_sph_vec_theta
+
+            elif direction == "phi":
+                def _pns_sph_vec_phi(field, data):
+                    if Is_BoxCenter:
+                        return data[fieldname_default]
+                    else:
+                        x     = data["x"] - center[0]
+                        y     = data["y"] - center[1]
+                        vec_x = data[fieldname_x]
+                        vec_y = data[fieldname_y]
+
+                        return (-y * vec_x + x * vec_y) / np.sqrt(x * x + y * y)
+
+                return _pns_sph_vec_phi
+
+        # add the fields
         ds.add_field(("gas", "pns_spherical_radius"),          function = _pns_sph_radius,
                      units = "cm",            display_name = r"Spherical Radius",             sampling_type = "cell")
         ds.add_field(("gas", "pns_spherical_theta"),           function = _pns_sph_theta,
                      units = "dimensionless", display_name = r"Spherical Theta",              sampling_type = "cell")
         ds.add_field(("gas", "pns_spherical_phi"),             function = _pns_sph_phi,
                      units = "dimensionless", display_name = r"Spherical Phi",                sampling_type = "cell")
-        ds.add_field(("gas", "pns_velocity_spherical_radius"), function = _pns_sph_vradius,
+        ds.add_field(("gas", "pns_velocity_spherical_radius"), function = _pns_sph_vec_generator("velocity", "radius"),
                      units = "cm/s",          display_name = r"Spherical Radial Velocity",    sampling_type = "cell")
-        ds.add_field(("gas", "pns_velocity_spherical_theta"),  function = _pns_sph_vtheta,
+        ds.add_field(("gas", "pns_velocity_spherical_theta"),  function = _pns_sph_vec_generator("velocity", "theta"),
                      units = "1/s",           display_name = r"Spherical Polar Velocity",     sampling_type = "cell")
-        ds.add_field(("gas", "pns_velocity_spherical_phi"),    function = _pns_sph_vphi,
+        ds.add_field(("gas", "pns_velocity_spherical_phi"),    function = _pns_sph_vec_generator("velocity", "phi"),
                      units = "1/s",           display_name = r"Spherical Azimuthal Velocity", sampling_type = "cell")
+
+        if Is_MHD:
+            ds.add_field(("gas", "pns_magnetic_field_spherical_radius"), function = _pns_sph_vec_generator("magnetic_field", "radius"),
+                         units = "gauss", display_name = r"Spherical Radial Magnetic Field",    sampling_type = "cell")
+            ds.add_field(("gas", "pns_magnetic_field_spherical_theta"),  function = _pns_sph_vec_generator("magnetic_field", "theta"),
+                         units = "gauss", display_name = r"Spherical Polar Magnetic Field",     sampling_type = "cell")
+            ds.add_field(("gas", "pns_magnetic_field_spherical_phi"),    function = _pns_sph_vec_generator("magnetic_field", "phi"),
+                         units = "gauss", display_name = r"Spherical Azimuthal Magnetic Field", sampling_type = "cell")
 
     def _yt_addfield_mri_N2(self, ds, eos):
         """

@@ -34,15 +34,18 @@ class gamervis(gamer_io):
     """
     FieldName_CentQuant = set(fmt_centquant_lightbulb.names) \
                         | set(fmt_centquant_leakage.names)       # available field names in Record__CentralQuant
-    FieldName_yt = {"density"                        : "Dens",
-                    "radial_velocity"                : "Vrad",
-                    "velocity_spherical_radius"      : "Vrad",
-                    "pns_velocity_spherical_radius"  : "Vrad",
-                    "ye"                             : "Ye",
-                    "Ye"                             : "YeDens",
-                    "magnetic_field_spherical_radius": "Brad",
-                    "magnetic_field_spherical_theta" : "Btht",
-                    "magnetic_field_spherical_phi"   : "Bphi" }  # alias of field name for output ASCII files
+    FieldName_yt = {"density"                            : "Dens",
+                    "radial_velocity"                    : "Vrad",
+                    "velocity_spherical_radius"          : "Vrad",
+                    "pns_velocity_spherical_radius"      : "Vrad",
+                    "ye"                                 : "Ye",
+                    "Ye"                                 : "YeDens",
+                    "magnetic_field_spherical_radius"    : "Brad",
+                    "magnetic_field_spherical_theta"     : "Btht",
+                    "magnetic_field_spherical_phi"       : "Bphi",
+                    "pns_magnetic_field_spherical_radius": "Brad",
+                    "pns_magnetic_field_spherical_theta" : "Btht",
+                    "pns_magnetic_field_spherical_phi"   : "Bphi" }  # alias of field name for output ASCII files
     fmt_ascii_header = "{:>14s}"
     fmt_ascii_data   = "%14.6e"
 
